@@ -51,23 +51,52 @@ NAMESPACE="metrics"
 VALUES_FILE="grafana-values.yaml"
 HELM_REPO_NAME="grafana"
 HELM_REPO_URL="https://grafana.github.io/helm-charts"
+# Name must match metadata.name in git-sync/repository.yaml.
+GIT_SYNC_REPO_NAME=$(grep -m1 'name:' git-sync/repository.yaml | awk '{print $2}')
+
+# --- Helper functions --------------------------------------------------------
+
+require() {
+  for cmd in "$@"; do
+    command -v "${cmd}" >/dev/null 2>&1 || { echo "error: ${cmd} is required but not installed"; exit 1; }
+  done
+}
+
+# Wait for a local TCP port to accept connections (used after starting port-forward).
+wait_for_port() {
+  local port="$1" retries="${2:-15}"
+  for _ in $(seq 1 "${retries}"); do
+    if curl -sf "http://localhost:${port}/api/health" >/dev/null 2>&1; then return 0; fi
+    sleep 1
+  done
+  echo "error: Grafana did not become reachable on port ${port} in time"
+  return 1
+}
+
+# delete_stale_repos removes any repository that isn't the one we're about to
+# push. Grafana rejects a folder-scoped repo if an instance-scoped one exists
+# (422). Deletion is async due to finalizers, so we poll until it's gone.
+delete_stale_repos() {
+  local url="$1" token="$2" keep="$3"
+  local names name still
+  names=$(curl -sf "${url}" -H "Authorization: Bearer ${token}" | jq -r '.items[].metadata.name')
+  for name in ${names}; do
+    [[ "${name}" == "${keep}" ]] && continue
+    echo "Removing stale repository: ${name}"
+    curl -sf -X DELETE "${url}/${name}" -H "Authorization: Bearer ${token}" >/dev/null
+    echo -n "Waiting for ${name} to be fully deleted..."
+    for _ in $(seq 1 30); do
+      still=$(curl -sf "${url}" -H "Authorization: Bearer ${token}" \
+        | jq -r --arg n "${name}" '.items[] | select(.metadata.name==$n) | .metadata.name')
+      [[ -z "${still}" ]] && { echo " done"; break; }
+      echo -n "."; sleep 2
+    done
+  done
+}
+
+require helm kubectl jq
 
 # --- Preflight checks --------------------------------------------------------
-
-if ! command -v helm >/dev/null 2>&1; then
-  echo "error: helm is required but not installed"
-  exit 1
-fi
-
-if ! command -v kubectl >/dev/null 2>&1; then
-  echo "error: kubectl is required but not installed"
-  exit 1
-fi
-
-if ! command -v jq >/dev/null 2>&1; then
-  echo "error: jq is required but not installed"
-  exit 1
-fi
 
 CURRENT_CONTEXT=$(kubectl config current-context)
 echo "Using kubectl context: ${CURRENT_CONTEXT}"
@@ -77,7 +106,7 @@ echo "Using kubectl context: ${CURRENT_CONTEXT}"
 echo "Adding Helm repo ${HELM_REPO_NAME}..."
 # `|| true` so re-running after the repo already exists does not fail.
 helm repo add "${HELM_REPO_NAME}" "${HELM_REPO_URL}" >/dev/null 2>&1 || true
-helm repo update
+helm repo update "${HELM_REPO_NAME}"
 
 # --- Namespace ---------------------------------------------------------------
 
@@ -147,8 +176,7 @@ if command -v gcx >/dev/null 2>&1 && [[ -n "${GIT_SYNC_TOKEN:-}" ]]; then
   }
   trap cleanup EXIT
 
-  # Brief pause for the port-forward tunnel to establish before gcx connects.
-  sleep 2
+  wait_for_port "${LOCAL_PORT}"
 
   # Obtain a Grafana API token for gcx.
   # If GRAFANA_TOKEN is already set in .env, use it directly.
@@ -167,11 +195,13 @@ if command -v gcx >/dev/null 2>&1 && [[ -n "${GIT_SYNC_TOKEN:-}" ]]; then
       -H "Content-Type: application/json" \
       -u "admin:${ADMIN_PASS}" \
       -d "{\"name\":\"${SA_NAME}\",\"role\":\"Admin\"}" | jq -r '.id')
+    [[ -z "${TEMP_SA_ID}" || "${TEMP_SA_ID}" == "null" ]] && { echo "error: failed to create temporary service account"; exit 1; }
 
     DEPLOY_TOKEN=$(curl -sf -X POST "http://localhost:${LOCAL_PORT}/api/serviceaccounts/${TEMP_SA_ID}/tokens" \
       -H "Content-Type: application/json" \
       -u "admin:${ADMIN_PASS}" \
       -d '{"name":"gcx-deploy-token"}' | jq -r '.key')
+    [[ -z "${DEPLOY_TOKEN}" || "${DEPLOY_TOKEN}" == "null" ]] && { echo "error: failed to obtain deploy token"; exit 1; }
   fi
 
   # --yes skips interactive prompts, making gcx login safe for automation.
@@ -179,32 +209,8 @@ if command -v gcx >/dev/null 2>&1 && [[ -n "${GIT_SYNC_TOKEN:-}" ]]; then
   # rather than accumulating stale contexts in ~/.config/gcx/config.yaml.
   gcx login deploy-local --server "http://localhost:${LOCAL_PORT}" --token "${DEPLOY_TOKEN}" --yes
 
-  # Grafana only allows one repository type at a time: if an instance-scoped
-  # repository exists, it blocks creation of any folder-scoped repository (422).
-  # Delete any stale repositories that aren't the one we're about to push before
-  # pushing, so we always converge to exactly the definition in git-sync/.
   REPOS_URL="http://localhost:${LOCAL_PORT}/apis/provisioning.grafana.app/v0alpha1/namespaces/default/repositories"
-  EXISTING_REPOS=$(curl -sf "${REPOS_URL}" -H "Authorization: Bearer ${DEPLOY_TOKEN}" | jq -r '.items[].metadata.name')
-  for REPO_NAME in ${EXISTING_REPOS}; do
-    if [[ "${REPO_NAME}" != "grafana-playground" ]]; then
-      echo "Removing stale repository: ${REPO_NAME}"
-      curl -sf -X DELETE "${REPOS_URL}/${REPO_NAME}" \
-        -H "Authorization: Bearer ${DEPLOY_TOKEN}" >/dev/null
-      # Finalizers (cleanup, remove-orphan-resources) make deletion async.
-      # Poll until the resource disappears before trying to push.
-      echo -n "Waiting for ${REPO_NAME} to be fully deleted..."
-      for _ in $(seq 1 30); do
-        STILL_EXISTS=$(curl -sf "${REPOS_URL}" -H "Authorization: Bearer ${DEPLOY_TOKEN}" \
-          | jq -r --arg n "${REPO_NAME}" '.items[] | select(.metadata.name==$n) | .metadata.name')
-        if [[ -z "${STILL_EXISTS}" ]]; then
-          echo " done"
-          break
-        fi
-        echo -n "."
-        sleep 2
-      done
-    fi
-  done
+  delete_stale_repos "${REPOS_URL}" "${DEPLOY_TOKEN}" "${GIT_SYNC_REPO_NAME}"
 
   gcx resources push --path git-sync/
 
