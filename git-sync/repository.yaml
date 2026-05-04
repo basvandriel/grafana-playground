@@ -1,0 +1,38 @@
+# repository.yaml — Git Sync repository definition.
+#
+# This file is pushed to Grafana via gcx (push-git-sync.sh or deploy-grafana.sh).
+# It tells Grafana which Git repository to sync dashboards from/to.
+#
+# API: provisioning.grafana.app/v0alpha1 — served by Grafana's internal API,
+# NOT a Kubernetes CRD. kubectl cannot apply this; only gcx/Grafana API can.
+#
+# Key settings:
+#   path:            Only files under grafana/ are synced. Other files in the repo
+#                    (scripts, values, etc.) are ignored by Git Sync.
+#   intervalSeconds: Grafana polls the repo every 60 seconds for changes.
+#   workflows:       'write' allows saving dashboards back to Git from the UI;
+#                    'branch' creates a branch + PR instead of committing to main.
+#   secure.token:    References the GIT_SYNC_TOKEN env var. gcx reads this from the
+#                    environment at push time and stores it securely in Grafana.
+apiVersion: provisioning.grafana.app/v0alpha1
+kind: Repository
+metadata:
+  name: grafana-playground
+spec:
+  title: grafana-playground
+  type: github
+  github:
+    url: https://github.com/basvandriel/grafana-playground
+    branch: main
+    path: grafana/
+    generateDashboardPreviews: false
+  sync:
+    enabled: true
+    intervalSeconds: 60
+    target: folder
+  workflows:
+    - write
+    - branch
+secure:
+  token:
+    create: GIT_SYNC_TOKEN

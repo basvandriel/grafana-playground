@@ -143,6 +143,12 @@ For a self-hosted Grafana deployment, the recommended approach is to enable Git 
 4. Set the path to `grafana/` and the branch to `main`.
 5. Grafana will synchronize `grafana/department-metrics.json` and `grafana/usage-tracker.json`.
 
+This repo also includes Git Sync resources in `git-sync/`, so the Git Sync setup can be managed as code.
+
+- `git-sync/repository.yaml` defines the Git Sync repository resource.
+- `push-git-sync.sh` helps push the Git Sync resource to Grafana using `gcx`.
+- `.env.example` shows the required connection values.
+
 The `grafana-values.yaml` file now uses a standalone `grafana.ini` file for feature toggles, and the deployment script creates a ConfigMap to mount it into Grafana.
 
 > In short: the repo contains the dashboards, and a deployment pipeline pushes them to Grafana, either through provisioning (if you can mount the repo into Grafana) or via the Grafana API (more common for central managed instances).

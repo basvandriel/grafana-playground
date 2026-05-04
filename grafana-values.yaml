@@ -1,13 +1,23 @@
+# grafana-values.yaml — Helm values for the self-hosted Grafana deployment.
+# Apply with: helm upgrade --install grafana grafana/grafana -f grafana-values.yaml
+# Or use deploy-grafana.sh which wraps this.
+
 adminUser: admin
 # adminPassword: "changeme"
+# If omitted, Helm generates a random password retrievable with:
+#   kubectl get secret --namespace metrics grafana -o jsonpath="{.data.admin-password}" | base64 --decode
 
 service:
+  # ClusterIP: only accessible inside the cluster or via port-forward.
+  # Change to LoadBalancer or NodePort to expose externally.
   type: ClusterIP
 
 ingress:
   enabled: false
 
 persistence:
+  # Disabled: dashboards are managed by Git Sync, not stored on disk.
+  # Grafana state (users, settings) resets on pod restart without persistence.
   enabled: false
 
 resources:
@@ -18,13 +28,20 @@ resources:
     cpu: 200m
     memory: 256Mi
 
+# GF_PATHS_CONFIG tells Grafana to load our custom ini instead of the default.
+# The chart always generates its own grafana.ini configmap and mounts it at
+# /etc/grafana/grafana.ini. We cannot override that mount, so we mount our file
+# at a different path and redirect Grafana to it via this env var.
 env:
   GF_PATHS_CONFIG: /etc/grafana/custom.ini
 
+# Mount the grafana-custom-ini ConfigMap (created by deploy-grafana.sh from grafana.ini)
+# into the container. subPath ensures only the single key is mounted as a file,
+# not the whole configmap as a directory.
 extraConfigmapMounts:
   - name: grafana-custom-ini
     mountPath: /etc/grafana/custom.ini
     subPath: grafana.ini
     configMap: grafana-custom-ini
     readOnly: true
-    
+
