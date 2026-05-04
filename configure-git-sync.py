@@ -1,23 +1,18 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.10"
-# dependencies = ["python-dotenv"]
-# ///
 """
-configure-git-sync.sh — Configure the Git Sync repository in a running Grafana instance.
+configure-git-sync.py — Configure the Git Sync repository in a running Grafana instance.
 
 Run this once after a fresh install, or whenever the repository settings change.
 The configuration persists in Grafana's internal storage and survives pod restarts
 and future Helm deploys — you do not need to re-run this on every deploy.
 
 Usage:
-    ./configure-git-sync.sh
+    uv run configure-git-sync.py
 
 Prerequisites:
     - kubectl on PATH
-    - python3 (stdlib only, no packages needed)
     - GIT_SYNC_TOKEN: GitHub PAT with repo access (set in .env or environment)
 """
+
 import base64
 import json
 import os
@@ -41,6 +36,7 @@ REPOS_PATH = "/apis/provisioning.grafana.app/v0alpha1/namespaces/default/reposit
 # kubectl helpers
 # ---------------------------------------------------------------------------
 
+
 def kubectl(*args: str) -> str:
     result = subprocess.run(["kubectl", *args], capture_output=True, text=True)
     if result.returncode != 0:
@@ -49,16 +45,30 @@ def kubectl(*args: str) -> str:
 
 
 def get_admin_password() -> str:
-    raw = kubectl("get", "secret", RELEASE_NAME, "-n", NAMESPACE,
-                  "-o", "jsonpath={.data.admin-password}")
+    raw = kubectl(
+        "get",
+        "secret",
+        RELEASE_NAME,
+        "-n",
+        NAMESPACE,
+        "-o",
+        "jsonpath={.data.admin-password}",
+    )
     return base64.b64decode(raw).decode()
 
 
 def start_port_forward() -> subprocess.Popen:
     return subprocess.Popen(
-        ["kubectl", "port-forward", "-n", NAMESPACE,
-         f"svc/{RELEASE_NAME}", f"{LOCAL_PORT}:80"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        [
+            "kubectl",
+            "port-forward",
+            "-n",
+            NAMESPACE,
+            f"svc/{RELEASE_NAME}",
+            f"{LOCAL_PORT}:80",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
 
 
@@ -66,8 +76,10 @@ def start_port_forward() -> subprocess.Popen:
 # Grafana API helpers
 # ---------------------------------------------------------------------------
 
-def grafana_request(method: str, path: str, admin_pass: str,
-                    body: dict | None = None) -> dict:
+
+def grafana_request(
+    method: str, path: str, admin_pass: str, body: dict | None = None
+) -> dict:
     url = f"http://localhost:{LOCAL_PORT}{path}"
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
@@ -87,7 +99,9 @@ def wait_for_grafana(retries: int = 15) -> None:
     print("Waiting for Grafana to be reachable...", end="", flush=True)
     for _ in range(retries):
         try:
-            urllib.request.urlopen(f"http://localhost:{LOCAL_PORT}/api/health", timeout=2)
+            urllib.request.urlopen(
+                f"http://localhost:{LOCAL_PORT}/api/health", timeout=2
+            )
             print(" ready")
             return
         except Exception:
@@ -122,16 +136,25 @@ def delete_all_repos(admin_pass: str) -> None:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     root = Path(__file__).parent
     load_dotenv(root / ".env")
 
     token = os.environ.get("GIT_SYNC_TOKEN", "")
     if not token:
-        print("error: GIT_SYNC_TOKEN is not set. Set it in .env or environment.", file=sys.stderr)
+        print(
+            "error: GIT_SYNC_TOKEN is not set. Set it in .env or environment.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
-    if subprocess.run(["kubectl", "version", "--client"], capture_output=True).returncode != 0:
+    if (
+        subprocess.run(
+            ["kubectl", "version", "--client"], capture_output=True
+        ).returncode
+        != 0
+    ):
         print("error: kubectl is not installed or not on PATH", file=sys.stderr)
         sys.exit(1)
 
