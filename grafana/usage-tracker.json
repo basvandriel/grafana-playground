@@ -1,0 +1,53 @@
+{
+    "uid": "usage-tracker",
+    "title": "Usage Tracker Dashboard",
+    "tags": [
+        "usage",
+        "tracker",
+        "example"
+    ],
+    "timezone": "browser",
+    "schemaVersion": 41,
+    "version": 1,
+    "refresh": "5m",
+    "panels": [
+        {
+            "type": "text",
+            "title": "Usage tracker overview",
+            "gridPos": {
+                "h": 6,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "options": {
+                "content": "### Usage tracker static example\n\nThis dashboard is a placeholder for usage tracking metrics. When connected to your Grafana instance, replace these cards with real metric queries.\n\n- Total tracked sessions: **9,412**\n- Events per minute: **132**\n- Successful event delivery: **99.7%**\n- Average processing time: **43 ms**",
+                "mode": "markdown",
+                "showHeader": false
+            },
+            "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+            }
+        },
+        {
+            "type": "text",
+            "title": "Tracker status",
+            "gridPos": {
+                "h": 4,
+                "w": 24,
+                "x": 0,
+                "y": 6
+            },
+            "options": {
+                "content": "#### Static status cards\n\n- Pipeline health: **Healthy**\n- Last sync: **5 minutes ago**\n- Top event type: **user.login**\n- Error rate: **0.19%**\n\nThis content is static and intended to show how a usage tracker dashboard can be organized.",
+                "mode": "markdown",
+                "showHeader": false
+            },
+            "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+            }
+        }
+    ]
+}

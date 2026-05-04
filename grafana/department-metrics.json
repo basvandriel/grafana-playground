@@ -1,0 +1,53 @@
+{
+    "uid": "department-metrics",
+    "title": "Department Metrics",
+    "tags": [
+        "department",
+        "metrics",
+        "example"
+    ],
+    "timezone": "browser",
+    "schemaVersion": 41,
+    "version": 1,
+    "refresh": "5m",
+    "panels": [
+        {
+            "type": "text",
+            "title": "Department overview",
+            "gridPos": {
+                "h": 5,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "options": {
+                "content": "### Department metrics overview\n\n- Active tools: **8**\n- Total alerts fired: **12** in the past 24h\n- Avg response time: **172 ms**\n- Error rate: **0.4%**\n\nThis dashboard contains static example values for the department and can be replaced with real metrics once the data source is configured.",
+                "mode": "markdown",
+                "showHeader": false
+            },
+            "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+            }
+        },
+        {
+            "type": "text",
+            "title": "Usage tracker summary",
+            "gridPos": {
+                "h": 6,
+                "w": 24,
+                "x": 0,
+                "y": 5
+            },
+            "options": {
+                "content": "#### Usage tracker details\n\n- Events captured: **24,812**\n- Unique users: **1,230**\n- Tracking latency: **48 ms**\n- Dashboard updated: **static example data**\n\nThis section is a placeholder for the usage tracker dashboard. Connect the real Prometheus or timeseries source to replace static values.",
+                "mode": "markdown",
+                "showHeader": false
+            },
+            "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+            }
+        }
+    ]
+}

@@ -125,4 +125,12 @@ Example GitHub Actions-style flow:
 - `dashboards/tool-a/tool-a.json` becomes another dashboard
 - Grafana displays all dashboards in the central instance
 
+### Sample dashboards in this repo
+
+This repo now includes two sample dashboards under `grafana/`:
+- `grafana/department-metrics.json`
+- `grafana/usage-tracker.json`
+
+These are static example dashboards designed to show how Git Sync can import dashboard files from a repository. Replace the text panels with actual metric queries once your data source is configured.
+
 > In short: the repo contains the dashboards, and a deployment pipeline pushes them to Grafana, either through provisioning (if you can mount the repo into Grafana) or via the Grafana API (more common for central managed instances).
