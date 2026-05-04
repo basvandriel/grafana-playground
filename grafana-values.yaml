@@ -1,0 +1,19 @@
+adminUser: admin
+# adminPassword: "changeme"
+
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: false
+
+persistence:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
