@@ -24,11 +24,20 @@ echo "Adding Helm repo ${HELM_REPO_NAME}..."
 helm repo add "${HELM_REPO_NAME}" "${HELM_REPO_URL}" >/dev/null 2>&1 || true
 helm repo update
 
+echo "Ensuring namespace '${NAMESPACE}' exists..."
+kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+
+echo "Creating/updating Grafana custom config ConfigMap..."
+kubectl create configmap "${RELEASE_NAME}-custom-ini" -n "${NAMESPACE}" --from-file=grafana.ini --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+
 echo "Deploying Grafana release '${RELEASE_NAME}' into namespace '${NAMESPACE}'..."
+
+ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-}"
 
 helm upgrade --install "${RELEASE_NAME}" "${HELM_REPO_NAME}/grafana" \
   --namespace "${NAMESPACE}" \
+  --create-namespace \
   -f "${VALUES_FILE}" \
-  --set adminPassword="${GRAFANA_ADMIN_PASSWORD}"
+  ${ADMIN_PASSWORD:+--set adminPassword="${ADMIN_PASSWORD}"}
 
 echo "Access Grafana via service in namespace '${NAMESPACE}'. Use 'kubectl get svc -n ${NAMESPACE}' or port-forward if needed."

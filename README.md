@@ -133,4 +133,16 @@ This repo now includes two sample dashboards under `grafana/`:
 
 These are static example dashboards designed to show how Git Sync can import dashboard files from a repository. Replace the text panels with actual metric queries once your data source is configured.
 
+## Using Git Sync with this repo
+
+For a self-hosted Grafana deployment, the recommended approach is to enable Git Sync and connect this repository directly.
+
+1. Deploy Grafana with `deploy-grafana.sh`.
+2. In Grafana, go to Administration → General → Provisioning.
+3. Add a Git Sync repository using this repo's GitHub URL.
+4. Set the path to `grafana/` and the branch to `main`.
+5. Grafana will synchronize `grafana/department-metrics.json` and `grafana/usage-tracker.json`.
+
+The `grafana-values.yaml` file now uses a standalone `grafana.ini` file for feature toggles, and the deployment script creates a ConfigMap to mount it into Grafana.
+
 > In short: the repo contains the dashboards, and a deployment pipeline pushes them to Grafana, either through provisioning (if you can mount the repo into Grafana) or via the Grafana API (more common for central managed instances).

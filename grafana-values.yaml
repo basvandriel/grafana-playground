@@ -17,3 +17,14 @@ resources:
   limits:
     cpu: 200m
     memory: 256Mi
+
+env:
+  GF_PATHS_CONFIG: /etc/grafana/custom.ini
+
+extraConfigmapMounts:
+  - name: grafana-custom-ini
+    mountPath: /etc/grafana/custom.ini
+    subPath: grafana.ini
+    configMap: grafana-custom-ini
+    readOnly: true
+    
